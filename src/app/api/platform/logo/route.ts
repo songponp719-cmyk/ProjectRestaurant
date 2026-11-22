@@ -39,17 +39,21 @@ function validateOrigin(req: Request) {
 
 async function removeStoredLogo(value: string | null) {
   const key = menuImageObjectKey(value);
-  if (!key?.startsWith("platform/")) return;
+  if (!key) return;
+  const objectName = key.startsWith("https://") ? new URL(key).pathname.slice(1) : key;
+  if (!objectName.startsWith("platform/")) return;
   try { await client.removeObject(bucketName, key); } catch { /* The saved setting is already authoritative. */ }
 }
 
 export async function GET() {
   const settings = await platformSettings();
   const key = menuImageObjectKey(settings.logoUrl);
-  if (!key?.startsWith("platform/")) return new NextResponse(null, { status: 404 });
+  if (!key) return new NextResponse(null, { status: 404 });
+  const objectName = key.startsWith("https://") ? new URL(key).pathname.slice(1) : key;
+  if (!objectName.startsWith("platform/")) return new NextResponse(null, { status: 404 });
   try {
     const stat = await client.statObject(bucketName, key);
-    const contentType = imageTypes[key.split(".").at(-1)?.toLowerCase() || ""] || stat.metaData["content-type"];
+    const contentType = imageTypes[objectName.split(".").at(-1)?.toLowerCase() || ""] || stat.metaData["content-type"];
     if (!Object.values(imageTypes).includes(contentType)) return new NextResponse(null, { status: 415 });
     const stream = await client.getObject(bucketName, key);
     return new NextResponse(Readable.toWeb(stream) as ReadableStream<Uint8Array>, { headers: {
@@ -90,8 +94,8 @@ export async function POST(req: Request) {
     } catch { throw new RequestError("รูปภาพไม่ถูกต้อง ใหญ่เกินกำหนด หรือเป็นภาพเคลื่อนไหว"); }
 
     const objectName = `platform/${randomUUID()}.${extension}`;
-    await client.putObject(bucketName, objectName, buffer, buffer.length, { "Content-Type": contentType });
-    const storedUrl = publicObjectUrl(objectName);
+    const stored = await client.putObject(bucketName, objectName, buffer, buffer.length, { "Content-Type": contentType });
+    const storedUrl = stored?.url || publicObjectUrl(objectName);
     let previousLogo: string | null = null;
     try {
       const updated = await prisma.$transaction(async tx => {

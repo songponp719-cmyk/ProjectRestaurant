@@ -62,10 +62,10 @@ export async function POST(req: Request) {
     } catch { throw new RequestError("รูปภาพไม่ถูกต้อง ใหญ่เกินกำหนด หรือเป็นภาพเคลื่อนไหว"); }
     const filename = `restaurants/${auth.user.restaurantId}/${randomUUID()}.${extension}`;
 
-    await minioClient.putObject(bucketName, filename, buffer, buffer.length, {
+    const stored = await minioClient.putObject(bucketName, filename, buffer, buffer.length, {
       "Content-Type": contentType,
     });
-    return NextResponse.json({ url: publicObjectUrl(filename) });
+    return NextResponse.json({ url: stored?.url || publicObjectUrl(filename) });
   } catch (error) {
     if (error instanceof RequestError) return requestError(error);
     console.error("Upload error:", error);

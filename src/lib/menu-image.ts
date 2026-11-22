@@ -10,6 +10,13 @@ export function menuImageObjectKey(image: string | null): string | null {
   if (!image) return null;
   try {
     const url = new URL(image);
+    if (
+      url.protocol === "https:" &&
+      url.hostname.endsWith(".public.blob.vercel-storage.com") &&
+      !url.username &&
+      !url.password &&
+      !url.port
+    ) return url.href;
     const hosts = new Set(["localhost", "127.0.0.1", process.env.MINIO_ENDPOINT || "127.0.0.1"]);
     const publicUrl = process.env.NEXT_PUBLIC_MINIO_PUBLIC_URL;
     if (publicUrl) hosts.add(new URL(publicUrl).hostname);
